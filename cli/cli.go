@@ -242,6 +242,8 @@ Usage:
 		gojq.WithModuleLoader(gojq.NewModuleLoader(modulePaths)),
 		gojq.WithEnvironLoader(os.Environ),
 		gojq.WithVariables(cli.argnames),
+		gojq.WithFunction("pb_schema", 1, 1, cli.funcPbSchema),
+		gojq.WithFunction("pb_decode", 1, 1, cli.funcPbDecode),
 		gojq.WithFunction("debug", 0, 0, cli.funcDebug),
 		gojq.WithFunction("stderr", 0, 0, cli.funcStderr),
 		gojq.WithFunction("input_filename", 0, 0,
@@ -409,6 +411,24 @@ func (cli *cli) createMarshaler() marshaler {
 		return &rawMarshaler{f, cli.outputRaw0}
 	}
 	return f
+}
+
+func (cli *cli) funcPbSchema(_ any, args []any) any {
+	loadedSchema, err := pbLoadSchema(args[0], cli.errStream)
+	if err != nil {
+		return fmt.Errorf("pb_schema: %w", err)
+	}
+
+	return loadedSchema
+}
+
+func (cli *cli) funcPbDecode(value any, args []any) any {
+	decodedValue, err := pbDecode(args[0], value)
+	if err != nil {
+		return fmt.Errorf("pb_decode: %w", err)
+	}
+
+	return decodedValue
 }
 
 func (cli *cli) funcDebug(v any, _ []any) any {
