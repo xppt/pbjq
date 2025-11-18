@@ -72,6 +72,7 @@ type flagopts struct {
 	ModulePaths   []string          `short:"L" long:"library-path" args:"dir" description:"directory to search modules from"`
 	Arg           map[string]string `long:"arg" args:"name value" description:"set a string value to a variable"`
 	ArgJSON       map[string]string `long:"argjson" args:"name value" description:"set a JSON value to a variable"`
+	ArgPb         map[string]string `long:"argpb" args:"name jsonspec" description:"set a pb parser to a variable"`
 	SlurpFile     map[string]string `long:"slurpfile" args:"name file" description:"set the JSON contents of a file to a variable"`
 	RawFile       map[string]string `long:"rawfile" args:"name file" description:"set the contents of a file to a variable"`
 	Args          []any             `long:"args" positional:"" description:"consume remaining arguments as positional string values"`
@@ -166,6 +167,14 @@ Usage:
 		cli.argnames = append(cli.argnames, "$"+k)
 		cli.argvalues = append(cli.argvalues, val)
 	}
+	for k, v := range opts.ArgPb {
+		loaded, err := pbLoadSchema(v, cli.errStream)
+		if err != nil {
+			return fmt.Errorf("unable to load arg %#v: %w", k, err)
+		}
+		cli.argnames = append(cli.argnames, "$"+k)
+		cli.argvalues = append(cli.argvalues, loaded)
+	}
 	for k, v := range opts.SlurpFile {
 		val, err := slurpFile(v)
 		if err != nil {
@@ -242,7 +251,6 @@ Usage:
 		gojq.WithModuleLoader(gojq.NewModuleLoader(modulePaths)),
 		gojq.WithEnvironLoader(os.Environ),
 		gojq.WithVariables(cli.argnames),
-		gojq.WithFunction("pb_schema", 1, 1, cli.funcPbSchema),
 		gojq.WithFunction("pb_decode", 1, 1, cli.funcPbDecode),
 		gojq.WithFunction("debug", 0, 0, cli.funcDebug),
 		gojq.WithFunction("stderr", 0, 0, cli.funcStderr),
@@ -411,15 +419,6 @@ func (cli *cli) createMarshaler() marshaler {
 		return &rawMarshaler{f, cli.outputRaw0}
 	}
 	return f
-}
-
-func (cli *cli) funcPbSchema(_ any, args []any) any {
-	loadedSchema, err := pbLoadSchema(args[0], cli.errStream)
-	if err != nil {
-		return fmt.Errorf("pb_schema: %w", err)
-	}
-
-	return loadedSchema
 }
 
 func (cli *cli) funcPbDecode(value any, args []any) any {
