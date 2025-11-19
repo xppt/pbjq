@@ -10,7 +10,7 @@ See the jq manual (almost compatible api) here: https://jqlang.org/manual/.
 Added features
 ---
 
-- cli: `--argpb <name> <jsonspec>`:
+- cli: `--argpb <name> <jsonspec>` / `--argpbfile <name> <file>`:
 
     Add protobuf message parser under `$<name>`.
 
@@ -23,6 +23,8 @@ Added features
         "import_paths": ["myimports/"]
     }
     ```
+
+    For `--argpbfile` the paths can be relative to the spec file dir.
 
 - func: `pb_decode(<parser>)`
 

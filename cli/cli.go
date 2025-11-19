@@ -73,6 +73,7 @@ type flagopts struct {
 	Arg           map[string]string `long:"arg" args:"name value" description:"set a string value to a variable"`
 	ArgJSON       map[string]string `long:"argjson" args:"name value" description:"set a JSON value to a variable"`
 	ArgPb         map[string]string `long:"argpb" args:"name jsonspec" description:"set a pb parser to a variable"`
+	ArgPbFile     map[string]string `long:"argpbfile" args:"name file" description:"set a pb parser to a variable from file"`
 	SlurpFile     map[string]string `long:"slurpfile" args:"name file" description:"set the JSON contents of a file to a variable"`
 	RawFile       map[string]string `long:"rawfile" args:"name file" description:"set the contents of a file to a variable"`
 	Args          []any             `long:"args" positional:"" description:"consume remaining arguments as positional string values"`
@@ -168,7 +169,15 @@ Usage:
 		cli.argvalues = append(cli.argvalues, val)
 	}
 	for k, v := range opts.ArgPb {
-		loaded, err := pbLoadSchema(v, cli.errStream)
+		loaded, err := pbLoadSchema(".", []byte(v), cli.errStream)
+		if err != nil {
+			return fmt.Errorf("unable to load arg %#v: %w", k, err)
+		}
+		cli.argnames = append(cli.argnames, "$"+k)
+		cli.argvalues = append(cli.argvalues, loaded)
+	}
+	for k, v := range opts.ArgPbFile {
+		loaded, err := pbLoadSchemaFile(v, cli.errStream)
 		if err != nil {
 			return fmt.Errorf("unable to load arg %#v: %w", k, err)
 		}

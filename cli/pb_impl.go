@@ -27,14 +27,25 @@ type pbLoadedSchema struct {
 	msgType protoreflect.MessageType
 }
 
-func pbLoadSchema(specArg any, stderr io.Writer) (*pbLoadedSchema, error) {
-	specStr, ok := specArg.(string)
-	if !ok {
-		return nil, errors.New("spec should be string")
+func pbLoadSchemaFile(specPath string, stderr io.Writer) (*pbLoadedSchema, error) {
+	absSpecPath, err := filepath.Abs(specPath)
+	if err != nil {
+		return nil, fmt.Errorf("bad spec path: %w", err)
 	}
 
+	specDir := filepath.Dir(absSpecPath)
+
+	specBody, err := os.ReadFile(absSpecPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read spec file: %w", err)
+	}
+
+	return pbLoadSchema(specDir, specBody, stderr)
+}
+
+func pbLoadSchema(specDir string, specBody []byte, stderr io.Writer) (*pbLoadedSchema, error) {
 	var spec pbSchemaSpec
-	err := json.Unmarshal([]byte(specStr), &spec)
+	err := json.Unmarshal(specBody, &spec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal spec: %w", err)
 	}
@@ -61,15 +72,11 @@ func pbLoadSchema(specArg any, stderr io.Writer) (*pbLoadedSchema, error) {
 	}
 
 	for _, importPath := range spec.ImportPaths {
-		protocArgs = append(protocArgs, "-I", importPath)
+		protocArgs = append(protocArgs, "-I", pbResolvePath(specDir, importPath))
 	}
 
 	for _, protoPath := range spec.ProtoPaths {
-		absProtoPath, err := filepath.Abs(protoPath)
-		if err != nil {
-			return nil, fmt.Errorf("bad proto path: %w", err)
-		}
-		protocArgs = append(protocArgs, absProtoPath)
+		protocArgs = append(protocArgs, pbResolvePath(specDir, protoPath))
 	}
 
 	cmd := exec.Command("protoc", protocArgs...)
@@ -138,4 +145,11 @@ func pbDecode(schemaArg any, inputValue any) (map[string]any, error) {
 	}
 
 	return result, nil
+}
+
+func pbResolvePath(base string, target string) string {
+	if filepath.IsAbs(target) {
+		return target
+	}
+	return filepath.Join(base, target)
 }
